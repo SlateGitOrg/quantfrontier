@@ -1,6 +1,6 @@
 """Frontier analysis: cliff detection, Pareto dominance, and eval-set sizing.
 
-This is the differentiator module. Everything here operates on `Measurement`
+This is the core analysis module. Everything here operates on `Measurement`
 records and answers the three questions a quantisation decision actually turns
 on:
 

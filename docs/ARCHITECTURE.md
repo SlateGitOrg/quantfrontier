@@ -1,35 +1,62 @@
 # Architecture
 
-> Fill this in as you build. It is the document you will screen-share in a
-> system-design interview, so write it for that audience.
-
 ## Context
 
-Why this system exists, who uses it, and what they do instead today.
+Teams that run a model on hardware they already own have to pick a quantisation
+level. Perplexity is the usual yardstick, but it degrades smoothly while
+individual tasks (structured JSON output, multi-step arithmetic) can collapse at
+one specific bit width. quantfrontier measures that per task and reports the
+trade-off between quality, latency and memory as a Pareto frontier.
 
 ## Container view
 
-The major runtime pieces and how they talk. Keep the diagram in Mermaid so it
-reviews well in a pull request.
-
 ```mermaid
 flowchart LR
-  A[Source] --> B[Ingest]
-  B --> C[(Store)]
-  C --> D[Service]
-  D --> E[Surface]
+  G["generator.py<br/>weight tensors, task populations"] --> Q["quantise.py<br/>integer round-trip"]
+  Q --> B["backend.py<br/>simulated task response"]
+  Q --> T["tinymodel.py<br/>real MLP forward passes"]
+  B --> M["Measurement records"]
+  T --> M
+  M --> F["frontier.py<br/>cliffs, Pareto, sizing"]
+  F --> D["demo.py<br/>text report"]
 ```
+
+Everything downstream of `Measurement` is backend-agnostic. A real runtime
+(for example llama.cpp logits per GGUF quant) can replace `ModelBackend` as long
+as it returns the same records.
 
 ## Key decisions
 
-Record each significant choice, the alternatives considered, and the reason —
-one short section each. The differentiator in the README should appear here as
-a decision with its trade-offs spelled out.
+- **Per-task frontiers, not one aggregate.** The best configuration differs by
+  task. `frontier.pareto_frontier` is computed per task over (quality, latency,
+  memory), and `recommend` picks per constraint.
+- **Cliff share as the cliff signal.** `degradation_profile` reports the largest
+  single-step drop divided by the total drop. A smooth curve over five steps
+  gives 0.2; a cliff gives close to 1.0.
+- **Real quantiser, simulated task response.** `quantise.py` does real integer
+  arithmetic and its error is measured. The map from weight error to task
+  accuracy in `backend.py` is a seeded simulation, so the demo is deterministic
+  and needs no weights or GPU.
+- **Real forward passes on a tiny MLP.** `tinymodel.py` supplies measured
+  accuracy, KL divergence and perplexity with planted ground truth (known label
+  noise) so full-precision scores have a closed-form expectation.
+- **Eval-set sizing.** `min_eval_size` uses a two-proportion test (alpha 0.05,
+  power 0.80) so a frontier is never drawn from differences smaller than the
+  noise.
+- **Replicated latency.** Latency is a mean and standard error over repeated
+  runs; a difference is believed only if it clears the stated number of standard
+  errors.
 
 ## Failure modes
 
-What breaks, how you detect it, and what the system does instead of lying.
+- A single-run measurement carries no variance, so the report states the
+  replication count next to every latency figure.
+- Near-tied configurations produce very large required eval sizes; these are
+  shown (or capped as `>10^6`) rather than hidden.
+- Perplexity and KL on the tiny MLP are not monotone in bit width at a single
+  seed, which the README calls out.
 
-## What is out of scope
+## Out of scope
 
-Name it explicitly. Scope discipline reads as seniority.
+- Implementing a quantisation method; this measures existing ones.
+- Real LLM benchmarks, lm-eval-harness, charts. The frontier is text output.
