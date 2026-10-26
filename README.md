@@ -42,7 +42,7 @@ Requires Python 3.11+. The code uses only the standard library, so there is noth
 ```bash
 git clone https://github.com/SlateGitOrg/quantfrontier.git
 cd quantfrontier
-python -m src.demo                        # full report, about 7 s
+python -m src.demo                        # full report, a few seconds
 python -m unittest discover -s tests -v   # 29 tests
 ```
 
@@ -71,7 +71,7 @@ From `python -m src.demo` (deterministic seeds, trimmed):
 
 ## Measured results
 
-From `python -m src.demo`, deterministic seeds, about 7 s. The suite has 29 tests.
+From `python -m src.demo`, deterministic seeds, runs in a few seconds. The suite has 29 tests.
 
 **Real forward passes (tiny MLP, 1600 eval items):**
 
